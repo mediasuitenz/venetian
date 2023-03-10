@@ -68,8 +68,11 @@
             'p' : 'blue',
             'ul' : 'green'
         },
-        'position' : 0,
-        'intervalId' : null
+        'wordPosition' : 0,
+        'tagPosition' : 0,
+        'intervalId' : null,
+        'lock': false,
+        'previousWord' : null
     }
     const modalContainer = document.createElement("div");
             modalContainer.style.display = "flex";
@@ -132,7 +135,6 @@
         legend.style.right =  "20px";
         legend.style.minWidth = '200px';
         legend.style.maxWidth = '100%';
-        legend.style.height = '200px';
         legend.style.background = "white";
         legend.style.padding = "20px";
         legend.style.border = "1px solid black";
@@ -144,7 +146,7 @@
         legend.style.transition = "opacity 0.2s linear";
 
         legend.innerHTML = `
-            <h4>Venetian Legend</h4>
+            <h4 style="margin-top: 0; margin-bottom:10px">Venetian Legend</h4>
             <ul style="padding-left:0; list-style-type: none; font-family: monospace">
                 <li style="display:flex; justify-content:space-between;"><span>Size</span>Option and + / - </li>
                 <li style="display:flex; justify-content:space-between;"><span>Speed</span>Option and < / > </li>
@@ -157,11 +159,17 @@
     const tags = document.querySelectorAll(tagsUsed);
 
     displayNextWord = () => {
-      if (config.position < words.length) {
-        modalContainer.innerHTML = words[config.position].word;
-        modalContainer.style.color = config.colorObj[`${words[config.position].tag.toLowerCase()}`];
-        config.colorObj[`${words[config.position].tag}`]
-        config.position++;
+      if (config.wordPosition < words.length) {
+        modalContainer.innerHTML = words[config.wordPosition].word;
+        modalContainer.style.color = config.colorObj[`${words[config.wordPosition].tag.toLowerCase()}`];
+        config.colorObj[`${words[config.wordPosition].tag}`]
+
+        if(config.previousWord && words[config.wordPosition].tagPosition !== config.previousWord.tagPosition){
+          //todo work
+          
+        }
+        config.previousWord = words[config.wordPosition]
+        config.wordPosition++;  
       } else {
         clearInterval(config.intervalId);
       }
@@ -183,17 +191,19 @@
         let tagName = tags[i].tagName
       
         tags[i].addEventListener('mouseover', (e) => handleElementMouseOver(e, tags[i]));    
-        tags[i].addEventListener('click', handleElementClick)
+        tags[i].addEventListener('click', (e) => handleElementClick(e, tags[i]))
         tags[i].addEventListener('mouseout', (e) => handleElementMouseOut(e, tags[i]));
 
         var textContent = tags[i].textContent;
+        textContent = tags[i].textContent.replace(/(?:\r\n|\r|\n)/g, " ")
         var textContentArray = textContent.split(" ");
         for (var j = 0; j < textContentArray.length; j++) {
-            words.push({ word: textContentArray[j], tag: tagName });
+            words.push({ word: textContentArray[j], tag: tagName, tagPosition: i   });
         }
     }
 
     const keyMapping = (e) => {
+        console.log(e.code)
         if (e.altKey) {
             switch(e.code) {
                 case 'Equal':
@@ -203,28 +213,57 @@
                     handleFontSizeChange('-')    
                     break;
                 case 'Period':
-                    handleSpeedChange('+')  
+                    handleSpeedChange('-')  
                     break;  
                 case 'Comma':
-                    handleSpeedChange('-')    
+                    handleSpeedChange('+')
                     break;
                 case 'KeyQ':
                     handleCancel('KeyQ')    
+                    break;
+                case 'KeyG':
+                    handleWordScrubChange('-')    
+                    break;
+                case 'KeyH':
+                    handleWordScrubChange('+')    
                     break;
                 default:
                     return
                 }
         }
     } 
+    const clearTags = () => {
+      for (let i = 0; i < tags.length; i++) {
+        tags[i].style.backgroundColor = null
+        tags[i].style.color = null
+        tags[i].style.transition = null
 
-    function handleElementClick(e) {
+      }
+    }
+    function handleElementClick(e, tag) {
+        console.log(tag)
         if (e.altKey) {
             if(!document.getElementById('modal')){
                 createModal()
+                
             }
-            if(config.intervalId)
-                clearInterval(config.intervalId)
-                config.position = 0
+            clearTags()
+            tag.style.backgroundColor = config.colorObj[`${tag.tagName.toLowerCase()}`];
+            tag.style.color = 'black';
+            tag.style.transition = "background-color 0.2s linear";
+            
+            if(config.intervalId) {
+                clearInterval(config.intervalId)     
+              }
+     
+            let tagPosition = 0
+            for (let i = 0; i < tags.length; i++) {
+              if(tags[i].textContent === e.target.textContent && tags[i].tagName === e.target.tagName) {
+                config.tagPosition = i
+              }
+            }
+            
+            config.wordPosition = words.findIndex(word => word.tagPosition === config.tagPosition)
             config.intervalId = setInterval(displayNextWord, config.speed);
         }
     }
@@ -238,8 +277,10 @@
     }
 
     function handleElementMouseOut (e, tag) {
+      if(e.altKey){
         tag.style.backgroundColor = '';
         tag.style.color = '';
+      }
     }
 
 
@@ -254,15 +295,31 @@
         config.intervalId = setInterval(displayNextWord, config.speed);
     }
 
+    handleWordScrubChange = (direction) => {
+        if(!config.lock){
+            config.lock = true
+            clearInterval(config.intervalId) 
+            modal.style.backgroundColor = "red";
+            modalContainer.style.color = "white";
+            modalContainer.style.fontSize = config.fontSize * 3
+            modalContainer.innerHTML = `${Math.round((config.wordPosition / words.length) * 100)}%` ;
+            setTimeout(() => {
+              modal.style.backgroundColor = "white";
+              config.wordPosition = direction === '+' ? config.wordPosition + 5 : config.wordPosition - 5
+              config.intervalId = setInterval(displayNextWord, config.speed);
+              config.lock = false
+            } , 500)
+        }    
+    }
+
     handleCancel = () => {
         modalElement = document.getElementById('modal')
+        config.elementSelected = false
         if(modalElement)
+            
             modalElement.remove()
             clearInterval(config.intervalId);
-    }
-    //Todo
-    handleWordNavigation = () => {} 
-
+    } 
     document.addEventListener("keypress", keyMapping);
     
 </script>
