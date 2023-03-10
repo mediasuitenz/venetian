@@ -8,8 +8,7 @@ const config = {
         'h4' : 'red',
         'h5' : 'red',
         'h6' : 'red',
-        'p' : 'blue',
-        'ul' : 'green'
+        'p' : 'blue'
     },
     'wordPosition' : 0,
     'tagPosition' : 0,
